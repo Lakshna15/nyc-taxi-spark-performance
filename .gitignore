@@ -1,0 +1,20 @@
+# Data: raw downloads and Spark outputs are large and must never be committed
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Spark side effects (created if Spark SQL/Hive features are touched)
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

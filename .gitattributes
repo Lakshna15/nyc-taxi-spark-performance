@@ -1,0 +1,2 @@
+# Store text files with LF endings so Makefile/scripts behave the same on Windows and Linux CI
+* text=auto eol=lf

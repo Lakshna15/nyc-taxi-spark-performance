@@ -1,0 +1,6 @@
+# Runtime
+pyspark>=3.5,<3.6
+
+# Dev tooling
+pytest>=8.0
+ruff>=0.6

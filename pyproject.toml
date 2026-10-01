@@ -1,0 +1,14 @@
+# Tool configuration only (this project is not packaged/published).
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# E/F = pycodestyle + pyflakes, I = import sorting, B = common bug patterns, UP = modern syntax
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+# Lets tests do `from src.spark_session import ...` without installing the project
+pythonpath = ["."]
+testpaths = ["tests"]
