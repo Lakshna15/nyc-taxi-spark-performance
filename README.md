@@ -20,3 +20,8 @@ make download   # ~650 MB of Parquet into data/raw/ (already-downloaded files ar
 make run        # Phase 1: print the row count of one month
 make test
 ```
+
+## Author & Contributors
+
+- **Lakshna** ([@Lakshna15](https://github.com/Lakshna15))
+
