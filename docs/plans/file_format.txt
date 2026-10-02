@@ -1,0 +1,91 @@
+Experiment: file_format
+Read 12 months + aggregate revenue by pickup zone: CSV vs Parquet
+Captured 2026-10-02T20:00:56 on Intel(R) Core(TM) Ultra 5 225H, 14 cores, 7.5 GB RAM (docker), Spark 3.5.9
+
+Size on disk: CSV 4.47 GB vs Parquet 0.69 GB
+Row count check: CSV 41,169,720 vs Parquet 41,169,720
+
+=== CSV: physical plan ===
+== Physical Plan ==
+AdaptiveSparkPlan (5)
++- HashAggregate (4)
+   +- Exchange (3)
+      +- HashAggregate (2)
+         +- Scan csv  (1)
+
+
+(1) Scan csv 
+Output [2]: [PULocationID#102, total_amount#111]
+Batched: false
+Location: InMemoryFileIndex [file:/app/data/bench/trips_csv]
+ReadSchema: struct<PULocationID:int,total_amount:double>
+
+(2) HashAggregate
+Input [2]: [PULocationID#102, total_amount#111]
+Keys [1]: [PULocationID#102]
+Functions [2]: [partial_sum(total_amount#111), partial_count(1)]
+Aggregate Attributes [2]: [sum#249, count#250L]
+Results [3]: [PULocationID#102, sum#251, count#252L]
+
+(3) Exchange
+Input [3]: [PULocationID#102, sum#251, count#252L]
+Arguments: hashpartitioning(PULocationID#102, 200), ENSURE_REQUIREMENTS, [plan_id=137]
+
+(4) HashAggregate
+Input [3]: [PULocationID#102, sum#251, count#252L]
+Keys [1]: [PULocationID#102]
+Functions [2]: [sum(total_amount#111), count(1)]
+Aggregate Attributes [2]: [sum(total_amount#111)#238, count(1)#240L]
+Results [3]: [PULocationID#102, sum(total_amount#111)#238 AS revenue#239, count(1)#240L AS trip_count#241L]
+
+(5) AdaptiveSparkPlan
+Output [3]: [PULocationID#102, revenue#239, trip_count#241L]
+Arguments: isFinalPlan=false
+
+
+
+CSV: scan metrics from the Spark UI
+  node: Scan csv, number of output rows: 41,169,720, number of files read: 14, metadata time: 0 ms, size of files read: 4.2 GiB
+
+=== Parquet: physical plan ===
+== Physical Plan ==
+AdaptiveSparkPlan (5)
++- HashAggregate (4)
+   +- Exchange (3)
+      +- HashAggregate (2)
+         +- Scan parquet  (1)
+
+
+(1) Scan parquet 
+Output [2]: [PULocationID#140, total_amount#149]
+Batched: true
+Location: InMemoryFileIndex [file:/app/data/raw/yellow_tripdata_2024-01.parquet, ... 11 entries]
+ReadSchema: struct<PULocationID:int,total_amount:double>
+
+(2) HashAggregate
+Input [2]: [PULocationID#140, total_amount#149]
+Keys [1]: [PULocationID#140]
+Functions [2]: [partial_sum(total_amount#149), partial_count(1)]
+Aggregate Attributes [2]: [sum#287, count#288L]
+Results [3]: [PULocationID#140, sum#289, count#290L]
+
+(3) Exchange
+Input [3]: [PULocationID#140, sum#289, count#290L]
+Arguments: hashpartitioning(PULocationID#140, 200), ENSURE_REQUIREMENTS, [plan_id=196]
+
+(4) HashAggregate
+Input [3]: [PULocationID#140, sum#289, count#290L]
+Keys [1]: [PULocationID#140]
+Functions [2]: [sum(total_amount#149), count(1)]
+Aggregate Attributes [2]: [sum(total_amount#149)#276, count(1)#278L]
+Results [3]: [PULocationID#140, sum(total_amount#149)#276 AS revenue#277, count(1)#278L AS trip_count#279L]
+
+(5) AdaptiveSparkPlan
+Output [3]: [PULocationID#140, revenue#277, trip_count#279L]
+Arguments: isFinalPlan=false
+
+
+
+Parquet: scan metrics from the Spark UI
+  node: Scan parquet, number of files read: 12, scan time: total (min, med, max (stageId: taskId))
+3.4 s (133 ms, 243 ms, 370 ms (stage 13.0: task 118)), metadata time: 1 ms, size of files read: 660.9 MiB, number of output rows: 41,169,720

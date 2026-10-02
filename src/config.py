@@ -9,8 +9,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("NYC_TAXI_DATA_DIR", PROJECT_ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"
 OUTPUT_DIR = DATA_DIR / "output"
+# Copies of the data in other layouts/formats, created by the benchmark experiments
+BENCH_DIR = DATA_DIR / "bench"
 
 RESULTS_DIR = PROJECT_ROOT / "results"
+RESULTS_FILE = RESULTS_DIR / "benchmark_results.csv"
+# Query plans and Spark metrics captured by the experiments
+PLANS_DIR = PROJECT_ROOT / "docs" / "plans"
 
 # 2024 has a stable schema all year; 2025 adds a congestion-fee column mid-stream.
 YEAR = 2024

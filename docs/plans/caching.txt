@@ -1,0 +1,255 @@
+Experiment: caching
+Four aggregations on the same enriched trips: no cache vs .cache()
+Captured 2026-10-02T20:00:56 on Intel(R) Core(TM) Ultra 5 225H, 14 cores, 7.5 GB RAM (docker), Spark 3.5.9
+
+Cached data (from the Spark UI Storage page):
+  14/14 partitions cached, memory 1.77 GB, disk 0.00 GB
+
+=== Plan of one output table reading from the cache (InMemoryTableScan) ===
+== Physical Plan ==
+AdaptiveSparkPlan (37)
++- Sort (36)
+   +- Exchange (35)
+      +- ObjectHashAggregate (34)
+         +- Exchange (33)
+            +- ObjectHashAggregate (32)
+               +- InMemoryTableScan (1)
+                     +- InMemoryRelation (2)
+                           +- AdaptiveSparkPlan (31)
+                              +- == Final Plan ==
+                                 * Project (17)
+                                 +- * BroadcastHashJoin LeftOuter BuildRight (16)
+                                    :- * Project (13)
+                                    :  +- * BroadcastHashJoin LeftOuter BuildRight (12)
+                                    :     :- * Project (6)
+                                    :     :  +- * Filter (5)
+                                    :     :     +- * ColumnarToRow (4)
+                                    :     :        +- Scan parquet  (3)
+                                    :     +- BroadcastQueryStage (11), Statistics(sizeInBytes=1026.1 KiB, rowCount=265)
+                                    :        +- BroadcastExchange (10)
+                                    :           +- * Project (9)
+                                    :              +- * Filter (8)
+                                    :                 +- Scan csv  (7)
+                                    +- BroadcastQueryStage (15), Statistics(sizeInBytes=1026.1 KiB, rowCount=265)
+                                       +- ReusedExchange (14)
+                              +- == Initial Plan ==
+                                 Project (30)
+                                 +- BroadcastHashJoin LeftOuter BuildRight (29)
+                                    :- Project (24)
+                                    :  +- BroadcastHashJoin LeftOuter BuildRight (23)
+                                    :     :- Project (19)
+                                    :     :  +- Filter (18)
+                                    :     :     +- Scan parquet  (3)
+                                    :     +- BroadcastExchange (22)
+                                    :        +- Project (21)
+                                    :           +- Filter (20)
+                                    :              +- Scan csv  (7)
+                                    +- BroadcastExchange (28)
+                                       +- Project (27)
+                                          +- Filter (26)
+                                             +- Scan csv  (25)
+
+
+(1) InMemoryTableScan
+Output [2]: [payment_type#6882L, tip_percentage#6978]
+Arguments: [payment_type#6882L, tip_percentage#6978]
+
+(2) InMemoryRelation
+Arguments: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955], CachedRDDBuilder(org.apache.spark.sql.execution.columnar.DefaultCachedBatchSerializer@4e8bcf0a,StorageLevel(disk, memory, deserialized, 1 replicas),AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(3) Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955]
+   +- *(3) BroadcastHashJoin [DOLocationID#6881], [dropoff_location_id#7017], LeftOuter, BuildRight, false
+      :- *(3) Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012]
+      :  +- *(3) BroadcastHashJoin [PULocationID#6880], [pickup_location_id#7010], LeftOuter, BuildRight, false
+      :     :- *(3) Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, (cast((unix_timestamp(tpep_dropoff_datetime#6875, yyyy-MM-dd HH:mm:ss, Some(UTC), false) - unix_timestamp(tpep_pickup_datetime#6874, yyyy-MM-dd HH:mm:ss, Some(UTC), false)) as double) / 60.0) AS trip_duration_minutes#6912, hour(tpep_pickup_datetime#6874, Some(UTC)) AS pickup_hour#6933, dayofweek(cast(tpep_pickup_datetime#6874 as date)) AS pickup_day_of_week#6955, ((tip_amount#6886 / fare_amount#6883) * 100.0) AS tip_percentage#6978]
+      :     :  +- *(3) Filter ((((((coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false) AND coalesce(((trip_distance#6877 > 0.0) AND (trip_distance#6877 <= 100.0)), false)) AND coalesce((tpep_dropoff_datetime#6875 > tpep_pickup_datetime#6874), false)) AND coalesce((tpep_dropoff_datetime#6875 <= tpep_pickup_datetime#6874 + INTERVAL '06' HOUR), false)) AND isnotnull(PULocationID#6880)) AND isnotnull(DOLocationID#6881)) AND coalesce(((tpep_pickup_datetime#6874 >= 2024-01-01 00:00:00) AND (tpep_pickup_datetime#6874 < 2025-01-01 00:00:00)), false))
+      :     :     +- *(3) ColumnarToRow
+      :     :        +- FileScan parquet [tpep_pickup_datetime#6874,tpep_dropoff_datetime#6875,trip_distance#6877,PULocationID#6880,DOLocationID#6881,payment_type#6882L,fare_amount#6883,tip_amount#6886,total_amount#6889] Batched: true, DataFilters: [coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false), coalesce(((trip_dist..., Format: Parquet, Location: InMemoryFileIndex(12 paths)[file:/app/data/raw/yellow_tripdata_2024-01.parquet, file:/app/data/ra..., PartitionFilters: [], PushedFilters: [IsNotNull(PULocationID), IsNotNull(DOLocationID)], ReadSchema: struct<tpep_pickup_datetime:timestamp_ntz,tpep_dropoff_datetime:timestamp_ntz,trip_distance:doubl...
+      :     +- BroadcastQueryStage 0
+      :        +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3796]
+      :           +- *(1) Project [LocationID#7002 AS pickup_location_id#7010, Borough#7003 AS pickup_borough#7011, Zone#7004 AS pickup_zone#7012]
+      :              +- *(1) Filter isnotnull(LocationID#7002)
+      :                 +- FileScan csv [LocationID#7002,Borough#7003,Zone#7004] Batched: false, DataFilters: [isnotnull(LocationID#7002)], Format: CSV, Location: InMemoryFileIndex(1 paths)[file:/app/data/raw/taxi_zone_lookup.csv], PartitionFilters: [], PushedFilters: [IsNotNull(LocationID)], ReadSchema: struct<LocationID:int,Borough:string,Zone:string>
+      +- BroadcastQueryStage 2
+         +- ReusedExchange [dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019], BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3796]
++- == Initial Plan ==
+   Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955]
+   +- BroadcastHashJoin [DOLocationID#6881], [dropoff_location_id#7017], LeftOuter, BuildRight, false
+      :- Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012]
+      :  +- BroadcastHashJoin [PULocationID#6880], [pickup_location_id#7010], LeftOuter, BuildRight, false
+      :     :- Project [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, (cast((unix_timestamp(tpep_dropoff_datetime#6875, yyyy-MM-dd HH:mm:ss, Some(UTC), false) - unix_timestamp(tpep_pickup_datetime#6874, yyyy-MM-dd HH:mm:ss, Some(UTC), false)) as double) / 60.0) AS trip_duration_minutes#6912, hour(tpep_pickup_datetime#6874, Some(UTC)) AS pickup_hour#6933, dayofweek(cast(tpep_pickup_datetime#6874 as date)) AS pickup_day_of_week#6955, ((tip_amount#6886 / fare_amount#6883) * 100.0) AS tip_percentage#6978]
+      :     :  +- Filter ((((((coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false) AND coalesce(((trip_distance#6877 > 0.0) AND (trip_distance#6877 <= 100.0)), false)) AND coalesce((tpep_dropoff_datetime#6875 > tpep_pickup_datetime#6874), false)) AND coalesce((tpep_dropoff_datetime#6875 <= tpep_pickup_datetime#6874 + INTERVAL '06' HOUR), false)) AND isnotnull(PULocationID#6880)) AND isnotnull(DOLocationID#6881)) AND coalesce(((tpep_pickup_datetime#6874 >= 2024-01-01 00:00:00) AND (tpep_pickup_datetime#6874 < 2025-01-01 00:00:00)), false))
+      :     :     +- FileScan parquet [tpep_pickup_datetime#6874,tpep_dropoff_datetime#6875,trip_distance#6877,PULocationID#6880,DOLocationID#6881,payment_type#6882L,fare_amount#6883,tip_amount#6886,total_amount#6889] Batched: true, DataFilters: [coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false), coalesce(((trip_dist..., Format: Parquet, Location: InMemoryFileIndex(12 paths)[file:/app/data/raw/yellow_tripdata_2024-01.parquet, file:/app/data/ra..., PartitionFilters: [], PushedFilters: [IsNotNull(PULocationID), IsNotNull(DOLocationID)], ReadSchema: struct<tpep_pickup_datetime:timestamp_ntz,tpep_dropoff_datetime:timestamp_ntz,trip_distance:doubl...
+      :     +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3734]
+      :        +- Project [LocationID#7002 AS pickup_location_id#7010, Borough#7003 AS pickup_borough#7011, Zone#7004 AS pickup_zone#7012]
+      :           +- Filter isnotnull(LocationID#7002)
+      :              +- FileScan csv [LocationID#7002,Borough#7003,Zone#7004] Batched: false, DataFilters: [isnotnull(LocationID#7002)], Format: CSV, Location: InMemoryFileIndex(1 paths)[file:/app/data/raw/taxi_zone_lookup.csv], PartitionFilters: [], PushedFilters: [IsNotNull(LocationID)], ReadSchema: struct<LocationID:int,Borough:string,Zone:string>
+      +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3738]
+         +- Project [LocationID#7075 AS dropoff_location_id#7017, Borough#7076 AS dropoff_borough#7018, Zone#7077 AS dropoff_zone#7019]
+            +- Filter isnotnull(LocationID#7075)
+               +- FileScan csv [LocationID#7075,Borough#7076,Zone#7077] Batched: false, DataFilters: [isnotnull(LocationID#7075)], Format: CSV, Location: InMemoryFileIndex(1 paths)[file:/app/data/raw/taxi_zone_lookup.csv], PartitionFilters: [], PushedFilters: [IsNotNull(LocationID)], ReadSchema: struct<LocationID:int,Borough:string,Zone:string>
+,None)
+
+(3) Scan parquet 
+Output [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+Batched: true
+Location: InMemoryFileIndex [file:/app/data/raw/yellow_tripdata_2024-01.parquet, ... 11 entries]
+PushedFilters: [IsNotNull(PULocationID), IsNotNull(DOLocationID)]
+ReadSchema: struct<tpep_pickup_datetime:timestamp_ntz,tpep_dropoff_datetime:timestamp_ntz,trip_distance:double,PULocationID:int,DOLocationID:int,payment_type:bigint,fare_amount:double,tip_amount:double,total_amount:double>
+
+(4) ColumnarToRow [codegen id : 3]
+Input [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+
+(5) Filter [codegen id : 3]
+Input [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+Condition : ((((((coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false) AND coalesce(((trip_distance#6877 > 0.0) AND (trip_distance#6877 <= 100.0)), false)) AND coalesce((tpep_dropoff_datetime#6875 > tpep_pickup_datetime#6874), false)) AND coalesce((tpep_dropoff_datetime#6875 <= tpep_pickup_datetime#6874 + INTERVAL '06' HOUR), false)) AND isnotnull(PULocationID#6880)) AND isnotnull(DOLocationID#6881)) AND coalesce(((tpep_pickup_datetime#6874 >= 2024-01-01 00:00:00) AND (tpep_pickup_datetime#6874 < 2025-01-01 00:00:00)), false))
+
+(6) Project [codegen id : 3]
+Output [9]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, (cast((unix_timestamp(tpep_dropoff_datetime#6875, yyyy-MM-dd HH:mm:ss, Some(UTC), false) - unix_timestamp(tpep_pickup_datetime#6874, yyyy-MM-dd HH:mm:ss, Some(UTC), false)) as double) / 60.0) AS trip_duration_minutes#6912, hour(tpep_pickup_datetime#6874, Some(UTC)) AS pickup_hour#6933, dayofweek(cast(tpep_pickup_datetime#6874 as date)) AS pickup_day_of_week#6955, ((tip_amount#6886 / fare_amount#6883) * 100.0) AS tip_percentage#6978]
+Input [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+
+(7) Scan csv 
+Output [3]: [LocationID#7002, Borough#7003, Zone#7004]
+Batched: false
+Location: InMemoryFileIndex [file:/app/data/raw/taxi_zone_lookup.csv]
+PushedFilters: [IsNotNull(LocationID)]
+ReadSchema: struct<LocationID:int,Borough:string,Zone:string>
+
+(8) Filter [codegen id : 1]
+Input [3]: [LocationID#7002, Borough#7003, Zone#7004]
+Condition : isnotnull(LocationID#7002)
+
+(9) Project [codegen id : 1]
+Output [3]: [LocationID#7002 AS pickup_location_id#7010, Borough#7003 AS pickup_borough#7011, Zone#7004 AS pickup_zone#7012]
+Input [3]: [LocationID#7002, Borough#7003, Zone#7004]
+
+(10) BroadcastExchange
+Input [3]: [pickup_location_id#7010, pickup_borough#7011, pickup_zone#7012]
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3796]
+
+(11) BroadcastQueryStage
+Output [3]: [pickup_location_id#7010, pickup_borough#7011, pickup_zone#7012]
+Arguments: 0
+
+(12) BroadcastHashJoin [codegen id : 3]
+Left keys [1]: [PULocationID#6880]
+Right keys [1]: [pickup_location_id#7010]
+Join type: LeftOuter
+Join condition: None
+
+(13) Project [codegen id : 3]
+Output [11]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012]
+Input [12]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_location_id#7010, pickup_borough#7011, pickup_zone#7012]
+
+(14) ReusedExchange [Reuses operator id: 10]
+Output [3]: [dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019]
+
+(15) BroadcastQueryStage
+Output [3]: [dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019]
+Arguments: 2
+
+(16) BroadcastHashJoin [codegen id : 3]
+Left keys [1]: [DOLocationID#6881]
+Right keys [1]: [dropoff_location_id#7017]
+Join type: LeftOuter
+Join condition: None
+
+(17) Project [codegen id : 3]
+Output [13]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955]
+Input [14]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012, dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019]
+
+(18) Filter
+Input [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+Condition : ((((((coalesce(((fare_amount#6883 >= 3.0) AND (total_amount#6889 > 0.0)), false) AND coalesce(((trip_distance#6877 > 0.0) AND (trip_distance#6877 <= 100.0)), false)) AND coalesce((tpep_dropoff_datetime#6875 > tpep_pickup_datetime#6874), false)) AND coalesce((tpep_dropoff_datetime#6875 <= tpep_pickup_datetime#6874 + INTERVAL '06' HOUR), false)) AND isnotnull(PULocationID#6880)) AND isnotnull(DOLocationID#6881)) AND coalesce(((tpep_pickup_datetime#6874 >= 2024-01-01 00:00:00) AND (tpep_pickup_datetime#6874 < 2025-01-01 00:00:00)), false))
+
+(19) Project
+Output [9]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, (cast((unix_timestamp(tpep_dropoff_datetime#6875, yyyy-MM-dd HH:mm:ss, Some(UTC), false) - unix_timestamp(tpep_pickup_datetime#6874, yyyy-MM-dd HH:mm:ss, Some(UTC), false)) as double) / 60.0) AS trip_duration_minutes#6912, hour(tpep_pickup_datetime#6874, Some(UTC)) AS pickup_hour#6933, dayofweek(cast(tpep_pickup_datetime#6874 as date)) AS pickup_day_of_week#6955, ((tip_amount#6886 / fare_amount#6883) * 100.0) AS tip_percentage#6978]
+Input [9]: [tpep_pickup_datetime#6874, tpep_dropoff_datetime#6875, trip_distance#6877, PULocationID#6880, DOLocationID#6881, payment_type#6882L, fare_amount#6883, tip_amount#6886, total_amount#6889]
+
+(20) Filter
+Input [3]: [LocationID#7002, Borough#7003, Zone#7004]
+Condition : isnotnull(LocationID#7002)
+
+(21) Project
+Output [3]: [LocationID#7002 AS pickup_location_id#7010, Borough#7003 AS pickup_borough#7011, Zone#7004 AS pickup_zone#7012]
+Input [3]: [LocationID#7002, Borough#7003, Zone#7004]
+
+(22) BroadcastExchange
+Input [3]: [pickup_location_id#7010, pickup_borough#7011, pickup_zone#7012]
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3734]
+
+(23) BroadcastHashJoin
+Left keys [1]: [PULocationID#6880]
+Right keys [1]: [pickup_location_id#7010]
+Join type: LeftOuter
+Join condition: None
+
+(24) Project
+Output [11]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012]
+Input [12]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_location_id#7010, pickup_borough#7011, pickup_zone#7012]
+
+(25) Scan csv 
+Output [3]: [LocationID#7075, Borough#7076, Zone#7077]
+Batched: false
+Location: InMemoryFileIndex [file:/app/data/raw/taxi_zone_lookup.csv]
+PushedFilters: [IsNotNull(LocationID)]
+ReadSchema: struct<LocationID:int,Borough:string,Zone:string>
+
+(26) Filter
+Input [3]: [LocationID#7075, Borough#7076, Zone#7077]
+Condition : isnotnull(LocationID#7075)
+
+(27) Project
+Output [3]: [LocationID#7075 AS dropoff_location_id#7017, Borough#7076 AS dropoff_borough#7018, Zone#7077 AS dropoff_zone#7019]
+Input [3]: [LocationID#7075, Borough#7076, Zone#7077]
+
+(28) BroadcastExchange
+Input [3]: [dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019]
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=3738]
+
+(29) BroadcastHashJoin
+Left keys [1]: [DOLocationID#6881]
+Right keys [1]: [dropoff_location_id#7017]
+Join type: LeftOuter
+Join condition: None
+
+(30) Project
+Output [13]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955]
+Input [14]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, payment_type#6882L, total_amount#6889, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955, tip_percentage#6978, pickup_borough#7011, pickup_zone#7012, dropoff_location_id#7017, dropoff_borough#7018, dropoff_zone#7019]
+
+(31) AdaptiveSparkPlan
+Output [13]: [tpep_pickup_datetime#6874, PULocationID#6880, DOLocationID#6881, pickup_borough#7011, pickup_zone#7012, dropoff_borough#7018, dropoff_zone#7019, payment_type#6882L, total_amount#6889, tip_percentage#6978, trip_duration_minutes#6912, pickup_hour#6933, pickup_day_of_week#6955]
+Arguments: isFinalPlan=true
+
+(32) ObjectHashAggregate
+Input [2]: [payment_type#6882L, tip_percentage#6978]
+Keys [1]: [payment_type#6882L]
+Functions [3]: [partial_count(1), partial_avg(tip_percentage#6978), partial_percentile_approx(tip_percentage#6978, 0.5, 10000, 0, 0)]
+Aggregate Attributes [4]: [count#9080L, sum#9081, count#9082L, buf#9083]
+Results [5]: [payment_type#6882L, count#9084L, sum#9085, count#9086L, buf#9087]
+
+(33) Exchange
+Input [5]: [payment_type#6882L, count#9084L, sum#9085, count#9086L, buf#9087]
+Arguments: hashpartitioning(payment_type#6882L, 200), ENSURE_REQUIREMENTS, [plan_id=4243]
+
+(34) ObjectHashAggregate
+Input [5]: [payment_type#6882L, count#9084L, sum#9085, count#9086L, buf#9087]
+Keys [1]: [payment_type#6882L]
+Functions [3]: [count(1), avg(tip_percentage#6978), percentile_approx(tip_percentage#6978, 0.5, 10000, 0, 0)]
+Aggregate Attributes [3]: [count(1)#8842L, avg(tip_percentage#6978)#8844, percentile_approx(tip_percentage#6978, 0.5, 10000, 0, 0)#8846]
+Results [5]: [payment_type#6882L, map(keys: [0,1,2,3,4,5,6], values: [Flex Fare trip,Credit card,Cash,No charge,Dispute,Unknown,Voided trip])[cast(payment_type#6882L as int)] AS payment_type_name#8852, count(1)#8842L AS trip_count#8843L, round(avg(tip_percentage#6978)#8844, 2) AS avg_tip_percentage#8845, round(percentile_approx(tip_percentage#6978, 0.5, 10000, 0, 0)#8846, 2) AS median_tip_percentage#8847]
+
+(35) Exchange
+Input [5]: [payment_type#6882L, payment_type_name#8852, trip_count#8843L, avg_tip_percentage#8845, median_tip_percentage#8847]
+Arguments: rangepartitioning(payment_type#6882L ASC NULLS FIRST, 200), ENSURE_REQUIREMENTS, [plan_id=4246]
+
+(36) Sort
+Input [5]: [payment_type#6882L, payment_type_name#8852, trip_count#8843L, avg_tip_percentage#8845, median_tip_percentage#8847]
+Arguments: [payment_type#6882L ASC NULLS FIRST], true, 0
+
+(37) AdaptiveSparkPlan
+Output [5]: [payment_type#6882L, payment_type_name#8852, trip_count#8843L, avg_tip_percentage#8845, median_tip_percentage#8847]
+Arguments: isFinalPlan=false
+
+
+

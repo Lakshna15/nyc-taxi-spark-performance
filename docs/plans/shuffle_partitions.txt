@@ -1,0 +1,19 @@
+Experiment: shuffle_partitions
+Shuffle-heavy groupBy: 200 vs tuned shuffle partitions (AQE off), then AQE on
+Captured 2026-10-02T20:00:56 on Intel(R) Core(TM) Ultra 5 225H, 14 cores, 7.5 GB RAM (docker), Spark 3.5.9
+
+
+=== baseline: {'spark.sql.shuffle.partitions': '200', 'spark.sql.adaptive.enabled': 'false'} ===
+stage 138:    1 tasks  (parquet at <unknown>:0)
+stage 139:   14 tasks  (save at <unknown>:0)
+stage 140:  200 tasks  (save at <unknown>:0)
+
+=== optimized: {'spark.sql.shuffle.partitions': '14', 'spark.sql.adaptive.enabled': 'false'} ===
+stage 141:    1 tasks  (parquet at <unknown>:0)
+stage 142:   14 tasks  (save at <unknown>:0)
+stage 143:   14 tasks  (save at <unknown>:0)
+
+=== aqe_on: {'spark.sql.shuffle.partitions': '200', 'spark.sql.adaptive.enabled': 'true'} ===
+stage 144:    1 tasks  (parquet at <unknown>:0)
+stage 145:   14 tasks  (save at <unknown>:0)
+stage 147:   15 tasks  (save at <unknown>:0)

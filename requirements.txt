@@ -1,5 +1,6 @@
 # Runtime
 pyspark>=3.5,<3.6
+psutil>=5.9  # machine specs (RAM) for benchmark results
 
 # Dev tooling
 pytest>=8.0

@@ -26,16 +26,20 @@ def _zone_columns(zones: DataFrame, prefix: str) -> DataFrame:
     )
 
 
-def join_zones(trips: DataFrame, zones: DataFrame) -> DataFrame:
+def join_zones(trips: DataFrame, zones: DataFrame, broadcast_zones: bool = False) -> DataFrame:
     """Attach borough and zone names for both the pickup and dropoff locations.
 
     We join the same lookup table twice, once per side. A left join keeps every trip
     even if its location ID were missing from the lookup (its names would be null).
-    The zone table is tiny (265 rows), so Spark broadcasts it automatically. Phase 5
-    measures what happens when it doesn't.
+
+    The zone table is tiny (265 rows), so Spark broadcasts it automatically anyway.
+    broadcast_zones=True adds an explicit hint, which works even when automatic
+    broadcasting is disabled (the broadcast-join experiment relies on that).
     """
     pickup_zones = _zone_columns(zones, "pickup")
     dropoff_zones = _zone_columns(zones, "dropoff")
+    if broadcast_zones:
+        pickup_zones, dropoff_zones = F.broadcast(pickup_zones), F.broadcast(dropoff_zones)
     return (
         trips.join(pickup_zones, F.col("PULocationID") == F.col("pickup_location_id"), "left")
         .join(dropoff_zones, F.col("DOLocationID") == F.col("dropoff_location_id"), "left")
