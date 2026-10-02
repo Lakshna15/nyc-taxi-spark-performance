@@ -7,6 +7,9 @@ from pyspark.sql import functions as F
 # yellow cabs almost never leave the metro area, so 100 miles is generous. The raw data
 # contains meter glitches of 100,000+ miles that would wreck any average.
 MAX_TRIP_DISTANCE_MILES = 100.0
+# The meter starts at $3.00 (TLC "initial charge"), so a lower fare is a data error. Without
+# this, $0.01 fares with real tips produce tip percentages of over 1,000,000%.
+MIN_FARE_DOLLARS = 3.00
 MAX_TRIP_DURATION_HOURS = 6
 
 PICKUP = "tpep_pickup_datetime"
@@ -28,7 +31,10 @@ def cleaning_rules(year: int) -> list[tuple[str, Column]]:
     max_duration = F.expr(f"INTERVAL {MAX_TRIP_DURATION_HOURS} HOURS")
 
     return [
-        ("positive_fare_and_total", (F.col("fare_amount") > 0) & (F.col("total_amount") > 0)),
+        (
+            "fare_at_least_minimum",
+            (F.col("fare_amount") >= MIN_FARE_DOLLARS) & (F.col("total_amount") > 0),
+        ),
         (
             "realistic_distance",
             (F.col("trip_distance") > 0) & (F.col("trip_distance") <= MAX_TRIP_DISTANCE_MILES),

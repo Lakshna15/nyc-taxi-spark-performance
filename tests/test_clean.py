@@ -1,57 +1,12 @@
 from datetime import datetime
 
 import pytest
-from pyspark.sql.types import (
-    DoubleType,
-    IntegerType,
-    StringType,
-    StructField,
-    StructType,
-    TimestampNTZType,
-)
 
 from src.clean import add_derived_columns, clean_trips, cleaning_report
+from tests.factories import make_trips as make_df
+from tests.factories import trip
 
 YEAR = 2024
-
-# Only the columns cleaning needs, with the same types as the real TLC files
-# (the timestamps in the Parquet files are read as timestamp_ntz).
-TRIP_SCHEMA = StructType(
-    [
-        StructField("trip_id", StringType()),  # test-only label so assertions can name rows
-        StructField("tpep_pickup_datetime", TimestampNTZType()),
-        StructField("tpep_dropoff_datetime", TimestampNTZType()),
-        StructField("PULocationID", IntegerType()),
-        StructField("DOLocationID", IntegerType()),
-        StructField("trip_distance", DoubleType()),
-        StructField("fare_amount", DoubleType()),
-        StructField("tip_amount", DoubleType()),
-        StructField("total_amount", DoubleType()),
-    ]
-)
-
-
-def trip(trip_id: str, **overrides) -> dict:
-    """A valid trip (Friday 2024-03-15, 08:00-08:30). Override fields to break one rule."""
-    row = {
-        "trip_id": trip_id,
-        "tpep_pickup_datetime": datetime(2024, 3, 15, 8, 0),
-        "tpep_dropoff_datetime": datetime(2024, 3, 15, 8, 30),
-        "PULocationID": 161,
-        "DOLocationID": 236,
-        "trip_distance": 3.2,
-        "fare_amount": 20.0,
-        "tip_amount": 4.0,
-        "total_amount": 28.5,
-    }
-    row.update(overrides)
-    return row
-
-
-def make_df(spark, rows):
-    return spark.createDataFrame(
-        [tuple(r[field.name] for field in TRIP_SCHEMA.fields) for r in rows], TRIP_SCHEMA
-    )
 
 
 def kept_ids(spark, rows) -> list[str]:
@@ -65,6 +20,8 @@ def kept_ids(spark, rows) -> list[str]:
         pytest.param({"fare_amount": 0.0}, id="zero_fare"),
         pytest.param({"fare_amount": -5.0}, id="negative_fare"),
         pytest.param({"fare_amount": None}, id="null_fare"),
+        pytest.param({"fare_amount": 0.01, "tip_amount": 5.0}, id="penny_fare"),
+        pytest.param({"fare_amount": 2.99}, id="below_meter_drop"),
         pytest.param({"total_amount": 0.0}, id="zero_total"),
         pytest.param({"trip_distance": 0.0}, id="zero_distance"),
         pytest.param({"trip_distance": 150.0}, id="huge_distance"),
@@ -97,6 +54,7 @@ def test_boundary_values_are_kept(spark):
     rows = [
         trip("exactly_6_hours", tpep_dropoff_datetime=datetime(2024, 3, 15, 14, 0)),
         trip("exactly_100_miles", trip_distance=100.0),
+        trip("exactly_minimum_fare", fare_amount=3.00),
         trip(
             "first_minute_of_year",
             tpep_pickup_datetime=datetime(2024, 1, 1, 0, 0),
@@ -133,7 +91,7 @@ def test_report_charges_each_row_to_the_first_rule_it_fails(spark):
 
     assert report == {
         "input_rows": 7,
-        "positive_fare_and_total": 2,
+        "fare_at_least_minimum": 2,
         "realistic_distance": 1,
         "dropoff_after_pickup": 0,
         "duration_at_most_6h": 0,
