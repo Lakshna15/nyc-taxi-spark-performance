@@ -1,5 +1,6 @@
 """Read raw input files into Spark DataFrames."""
 
+from collections.abc import Iterable
 from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
@@ -28,6 +29,17 @@ def _require(path: Path) -> str:
 def read_trips_month(spark: SparkSession, year: int, month: int) -> DataFrame:
     """Read one month of yellow taxi trips. Parquet files carry their own schema."""
     return spark.read.parquet(_require(config.trip_file(year, month)))
+
+
+def read_trips(spark: SparkSession, year: int, months: Iterable[int] = range(1, 13)) -> DataFrame:
+    """Read several months of trips as one DataFrame.
+
+    Spark takes the schema from one file and assumes the rest match. We checked that all
+    12 months of 2024 share identical column names and types; other years are not
+    guaranteed to (TLC has changed column types between months before).
+    """
+    paths = [_require(config.trip_file(year, m)) for m in months]
+    return spark.read.parquet(*paths)
 
 
 def read_zones(spark: SparkSession) -> DataFrame:
